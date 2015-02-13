@@ -58,10 +58,9 @@ var supportedHostKeyAlgos = []string{
 }
 
 // supportedMACs specifies a default set of MAC algorithms in preference order.
-// This is based on RFC 4253, section 6.4, but with hmac-md5 variants removed
-// because they have reached the end of their useful life.
+// This is based on RFC 4253, section 6.4
 var supportedMACs = []string{
-	"hmac-sha1", "hmac-sha1-96",
+	"hmac-sha1", "hmac-sha1-96", "hmac-md5",
 }
 
 var supportedCompressions = []string{compressionNone}
