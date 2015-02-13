@@ -12,8 +12,8 @@ import (
 	"net"
 	"net/http"
 
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	"github.com/ScriptRock/crypto/ssh"
+	"github.com/ScriptRock/crypto/ssh/terminal"
 )
 
 func ExampleNewServerConn() {

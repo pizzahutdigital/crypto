@@ -12,7 +12,7 @@ import (
 	"log"
 	"math/big"
 
-	"golang.org/x/crypto/ssh"
+	"github.com/ScriptRock/crypto/ssh"
 )
 
 // Server wraps an Agent and uses it to implement the agent side of
