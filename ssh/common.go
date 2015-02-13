@@ -24,10 +24,18 @@ const (
 )
 
 // supportedCiphers specifies the supported ciphers in preference order.
-var supportedCiphers = []string{
+var defaultSupportedCiphers = []string{
 	"aes128-ctr", "aes192-ctr", "aes256-ctr",
 	"aes128-gcm@openssh.com",
 	"arcfour256", "arcfour128",
+}
+var discouragedSupportedCiphers = []string{
+	"aes128-cbc", "aes192-cbc", "aes256-cbc", "3des-cbc",
+}
+var supportedCiphers = append(defaultSupportedCiphers, discouragedSupportedCiphers...)
+
+func AllSupportedCiphers() []string {
+	return append(supportedCiphers)
 }
 
 // supportedKexAlgos specifies the supported key-exchange algorithms in
@@ -204,7 +212,7 @@ func (c *Config) SetDefaults() {
 		c.Rand = rand.Reader
 	}
 	if c.Ciphers == nil {
-		c.Ciphers = supportedCiphers
+		c.Ciphers = defaultSupportedCiphers
 	}
 
 	if c.KeyExchanges == nil {

@@ -86,13 +86,13 @@ func (t *transport) prepareKeyChange(algs *algorithms, kexResult *kexResult) err
 
 	kexResult.SessionID = t.sessionID
 
-	if ciph, err := newPacketCipher(t.reader.dir, algs.r, kexResult); err != nil {
+	if ciph, err := newPacketCipher(decrypt, t.reader.dir, algs.r, kexResult); err != nil {
 		return err
 	} else {
 		t.reader.pendingKeyChange <- ciph
 	}
 
-	if ciph, err := newPacketCipher(t.writer.dir, algs.w, kexResult); err != nil {
+	if ciph, err := newPacketCipher(encrypt, t.writer.dir, algs.w, kexResult); err != nil {
 		return err
 	} else {
 		t.writer.pendingKeyChange <- ciph
@@ -198,8 +198,8 @@ func generateKeys(d direction, algs directionAlgorithms, kex *kexResult) (iv, ke
 	cipherMode := cipherModes[algs.Cipher]
 	macMode := macModes[algs.MAC]
 
-	iv = make([]byte, cipherMode.ivSize)
-	key = make([]byte, cipherMode.keySize)
+	iv = make([]byte, cipherMode.IvSize())
+	key = make([]byte, cipherMode.KeySize())
 	macKey = make([]byte, macMode.keySize)
 
 	generateKeyMaterial(iv, d.ivTag, kex)
@@ -211,25 +211,14 @@ func generateKeys(d direction, algs directionAlgorithms, kex *kexResult) (iv, ke
 // setupKeys sets the cipher and MAC keys from kex.K, kex.H and sessionId, as
 // described in RFC 4253, section 6.4. direction should either be serverKeys
 // (to setup server->client keys) or clientKeys (for client->server keys).
-func newPacketCipher(d direction, algs directionAlgorithms, kex *kexResult) (packetCipher, error) {
+func newPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, kex *kexResult) (packetCipher, error) {
 	iv, key, macKey := generateKeys(d, algs, kex)
 
 	if algs.Cipher == gcmCipherID {
 		return newGCMCipher(iv, key, macKey)
 	}
 
-	c := &streamPacketCipher{
-		mac: macModes[algs.MAC].new(macKey),
-	}
-	c.macResult = make([]byte, c.mac.Size())
-
-	var err error
-	c.cipher, err = cipherModes[algs.Cipher].createStream(key, iv)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return cipherModes[algs.Cipher].createPacketCipher(dir, d, algs, macKey, key, iv)
 }
 
 // generateKeyMaterial fills out with key material generated from tag, K, H

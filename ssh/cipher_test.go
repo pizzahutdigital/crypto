@@ -27,12 +27,12 @@ func TestPacketCiphers(t *testing.T) {
 			MAC:         "hmac-sha1",
 			Compression: "none",
 		}
-		client, err := newPacketCipher(clientKeys, algs, kr)
+		client, err := newPacketCipher(encrypt, clientKeys, algs, kr)
 		if err != nil {
 			t.Errorf("newPacketCipher(client, %q): %v", cipher, err)
 			continue
 		}
-		server, err := newPacketCipher(clientKeys, algs, kr)
+		server, err := newPacketCipher(decrypt, clientKeys, algs, kr)
 		if err != nil {
 			t.Errorf("newPacketCipher(client, %q): %v", cipher, err)
 			continue

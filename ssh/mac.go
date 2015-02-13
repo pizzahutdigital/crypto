@@ -9,6 +9,7 @@ package ssh
 import (
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/md5"
 	"hash"
 )
 
@@ -49,5 +50,8 @@ var macModes = map[string]*macMode{
 	}},
 	"hmac-sha1-96": {20, func(key []byte) hash.Hash {
 		return truncatingMAC{12, hmac.New(sha1.New, key)}
+	}},
+	"hmac-md5": {24, func(key []byte) hash.Hash {
+		return hmac.New(md5.New, key)
 	}},
 }

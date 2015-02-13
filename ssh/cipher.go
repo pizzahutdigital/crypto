@@ -6,6 +6,7 @@ package ssh
 
 import (
 	"crypto/aes"
+	"crypto/des"
 	"crypto/cipher"
 	"crypto/rc4"
 	"crypto/subtle"
@@ -14,6 +15,13 @@ import (
 	"fmt"
 	"hash"
 	"io"
+)
+
+type cryptDirection byte
+
+const (
+	encrypt = cryptDirection(iota)
+	decrypt
 )
 
 const (
@@ -47,8 +55,42 @@ func newAESCTR(key, iv []byte) (cipher.Stream, error) {
 	return cipher.NewCTR(c, iv), nil
 }
 
+func newAESCBC(dir cryptDirection, key, iv []byte) (cipher.BlockMode, error) {
+	c, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	if dir == encrypt {
+		return cipher.NewCBCEncrypter(c, iv), nil
+	} else if dir == decrypt {
+		return cipher.NewCBCDecrypter(c, iv), nil
+	} else {
+		panic(fmt.Sprintf("invalid crypt direction: %v", dir))
+	}
+}
+
+func new3DESCBC(dir cryptDirection, key, iv []byte) (cipher.BlockMode, error) {
+	c, err := des.NewTripleDESCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	if dir == encrypt {
+		return cipher.NewCBCEncrypter(c, iv), nil
+	} else if dir == decrypt {
+		return cipher.NewCBCDecrypter(c, iv), nil
+	} else {
+		panic(fmt.Sprintf("invalid crypt direction: %v", dir))
+	}
+}
+
 func newRC4(key, iv []byte) (cipher.Stream, error) {
 	return rc4.NewCipher(key)
+}
+
+type cipherMode interface {
+	createPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, macKey, key, iv []byte) (packetCipher, error)
+	KeySize() int
+	IvSize() int
 }
 
 type streamCipherMode struct {
@@ -56,6 +98,14 @@ type streamCipherMode struct {
 	ivSize     int
 	skip       int
 	createFunc func(key, iv []byte) (cipher.Stream, error)
+}
+
+func (c *streamCipherMode) KeySize() int {
+	return c.keySize
+}
+
+func (c *streamCipherMode) IvSize() int {
+	return c.ivSize
 }
 
 func (c *streamCipherMode) createStream(key, iv []byte) (cipher.Stream, error) {
@@ -88,31 +138,97 @@ func (c *streamCipherMode) createStream(key, iv []byte) (cipher.Stream, error) {
 	return stream, nil
 }
 
+func (scm *streamCipherMode) createPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, macKey, key, iv []byte) (packetCipher, error) {
+	c := &streamPacketCipher{
+		mac: macModes[algs.MAC].new(macKey),
+	}
+	c.macResult = make([]byte, c.mac.Size())
+
+	var err error
+	c.cipher, err = scm.createStream(key, iv)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+type blockCipherMode struct {
+	keySize    int
+	ivSize     int
+	createFunc func(d cryptDirection, key, iv []byte) (cipher.BlockMode, error)
+}
+
+func (c *blockCipherMode) KeySize() int {
+	return c.keySize
+}
+
+func (c *blockCipherMode) IvSize() int {
+	return c.ivSize
+}
+
+func (c *blockCipherMode) createBlock(d cryptDirection, key, iv []byte) (cipher.BlockMode, error) {
+	if len(key) < c.keySize {
+		panic("ssh: key length too small for cipher")
+	}
+	if len(iv) < c.ivSize {
+		panic("ssh: iv too small for cipher")
+	}
+
+	stream, err := c.createFunc(d, key[:c.keySize], iv[:c.ivSize])
+	if err != nil {
+		return nil, err
+	}
+
+	return stream, nil
+}
+
+func (scm *blockCipherMode) createPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, macKey, key, iv []byte) (packetCipher, error) {
+	c := &blockPacketCipher{
+		mac: macModes[algs.MAC].new(macKey),
+	}
+	c.macResult = make([]byte, c.mac.Size())
+
+	var err error
+	c.cipher, err = scm.createBlock(dir, key, iv)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+
 // cipherModes documents properties of supported ciphers. Ciphers not included
 // are not supported and will not be negotiated, even if explicitly requested in
 // ClientConfig.Crypto.Ciphers.
-var cipherModes = map[string]*streamCipherMode{
+var cipherModes = map[string]cipherMode{
 	// Ciphers from RFC4344, which introduced many CTR-based ciphers. Algorithms
 	// are defined in the order specified in the RFC.
-	"aes128-ctr": {16, aes.BlockSize, 0, newAESCTR},
-	"aes192-ctr": {24, aes.BlockSize, 0, newAESCTR},
-	"aes256-ctr": {32, aes.BlockSize, 0, newAESCTR},
+	"aes128-ctr": &streamCipherMode{16, aes.BlockSize, 0, newAESCTR},
+	"aes192-ctr": &streamCipherMode{24, aes.BlockSize, 0, newAESCTR},
+	"aes256-ctr": &streamCipherMode{32, aes.BlockSize, 0, newAESCTR},
 
 	// Ciphers from RFC4345, which introduces security-improved arcfour ciphers.
 	// They are defined in the order specified in the RFC.
-	"arcfour128": {16, 0, 1536, newRC4},
-	"arcfour256": {32, 0, 1536, newRC4},
+	"arcfour128": &streamCipherMode{16, 0, 1536, newRC4},
+	"arcfour256": &streamCipherMode{32, 0, 1536, newRC4},
 
 	// Cipher defined in RFC 4253, which describes SSH Transport Layer Protocol.
 	// Note that this cipher is not safe, as stated in RFC 4253: "Arcfour (and
 	// RC4) has problems with weak keys, and should be used with caution."
 	// RFC4345 introduces improved versions of Arcfour.
-	"arcfour": {16, 0, 0, newRC4},
+	"arcfour": &streamCipherMode{16, 0, 0, newRC4},
 
 	// AES-GCM is not a stream cipher, so it is constructed with a
 	// special case. If we add any more non-stream ciphers, we
 	// should invest a cleaner way to do this.
-	gcmCipherID: {16, 12, 0, nil},
+	gcmCipherID: &streamCipherMode{16, 12, 0, nil},
+
+	"aes128-cbc": &blockCipherMode{16, aes.BlockSize, newAESCBC},
+	"aes192-cbc": &blockCipherMode{24, aes.BlockSize, newAESCBC},
+	"aes256-cbc": &blockCipherMode{32, aes.BlockSize, newAESCBC},
+	"3des-cbc":   &blockCipherMode{24, des.BlockSize, new3DESCBC},
 }
 
 // prefixLen is the length of the packet prefix that contains the packet length
@@ -342,3 +458,186 @@ func (c *gcmCipher) readPacket(seqNum uint32, r io.Reader) ([]byte, error) {
 	plain = plain[1 : length-uint32(padding)]
 	return plain, nil
 }
+
+type blockPacketCipher struct {
+	mac    hash.Hash
+	cipher cipher.BlockMode
+
+	// The following members are to avoid per-packet allocations.
+	prefix      [prefixLen]byte
+	seqNumBytes [4]byte
+	padding     [2 * packetSizeMultiple]byte
+	packetData  []byte
+	macResult   []byte
+}
+
+// blockedLength calculates the number of bytes required to hold length bytes
+// of data, within the given block size multiple.
+func blockedLength(length, blockSize int) int {
+	numBlocks := length / blockSize
+	if length%blockSize > 0 {
+		numBlocks++
+	}
+	return numBlocks * blockSize
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (s *blockPacketCipher) readPacket(seqNum uint32, r io.Reader) ([]byte, error) {
+	minPacketSizeMultiple := int(8)
+	minPacketSize         := int(16)
+	maxPacketSize         := uint32(36000)
+	minPaddingSize        := uint32(4) // TODO(huin) should this be configurable?
+
+	blockSize := s.cipher.BlockSize()
+
+	// Read the header, which will include some of the subsequent data in the
+	// case of block ciphers - this is copied back to the payload later.
+	firstBlockLength := blockedLength(5, blockSize)
+	// How many bytes of payload/padding will be read with this first read.
+	overreadLength := firstBlockLength - 5
+	firstBlock := make([]byte, firstBlockLength)
+	if _, err := io.ReadFull(r, firstBlock); err != nil {
+		return nil, err
+	}
+
+	s.cipher.CryptBlocks(firstBlock, firstBlock)
+
+	length := binary.BigEndian.Uint32(firstBlock[:])
+	if length > maxPacket {
+		return nil, errors.New("ssh: max packet length exceeded.")
+	}
+
+	paddingLength := uint32(firstBlock[4])
+
+	if paddingLength < minPaddingSize {
+		return nil, errors.New("invalid padding length")
+	}
+	if length-paddingLength < 1 {
+		return nil, errors.New("invalid packet length")
+	}
+	if length > maxPacketSize {
+		return nil, errors.New("packet too large")
+	}
+	if length+4 < uint32(maxInt(minPacketSize, blockSize)) {
+		return nil, errors.New("packet too small")
+	}
+	// The length of the packet (including the length field but not the MAC) must
+	// be a multiple of the block size or 8, whichever is larger.
+	if (length+4)%uint32(maxInt(minPacketSizeMultiple, blockSize)) != 0 {
+		return nil, errors.New("invalid packet length multiple")
+	}
+
+	var macSize uint32
+	if s.mac != nil {
+		macSize = uint32(s.mac.Size())
+	}
+
+	// Various positions/lengths within the payload/padding buffer:
+	cryptedStart := overreadLength
+	paddingStart := length - paddingLength - 1
+	macStart := paddingStart + paddingLength
+	bufferLength := macStart + macSize
+
+	packet := make([]byte, bufferLength)
+	if _, err := io.ReadFull(r, packet[cryptedStart:]); err != nil {
+		return nil, err
+	}
+	mac := packet[macStart:]
+
+	// Copy the previously decrypted bytes in at the start.
+	copy(packet[:cryptedStart], firstBlock[5:])
+
+	// Decrypt the remainder of the packet.
+	remainingCrypted := packet[cryptedStart:macStart]
+	s.cipher.CryptBlocks(remainingCrypted, remainingCrypted)
+
+	if s.mac != nil {
+		s.mac.Reset()
+		seqNumBytes := []byte{
+			byte(seqNum >> 24),
+			byte(seqNum >> 16),
+			byte(seqNum >> 8),
+			byte(seqNum),
+		}
+		s.mac.Write(seqNumBytes)
+		s.mac.Write(firstBlock[:5])
+		s.mac.Write(packet[:macStart])
+		s.macResult = s.mac.Sum(s.macResult[:0])
+		if subtle.ConstantTimeCompare(s.macResult, mac) != 1 {
+			return nil, errors.New("ssh: MAC failure")
+		}
+	}
+
+	return packet[:paddingStart], nil
+}
+
+func (s *blockPacketCipher) writePacket(seqNum uint32, w io.Writer, rand io.Reader, packet []byte) error {
+	minPacketSizeMultiple := int(8)
+	minPaddingSize        := int(4) // TODO(huin) should this be configurable?
+
+	// Length of encrypted portion of the packet (header, payload, padding).
+	effectiveBlockSize := maxInt(minPacketSizeMultiple, s.cipher.BlockSize())
+
+	// Enforce minimum padding and packet size.
+	encLength := maxInt(5+len(packet)+minPaddingSize, minPaddingSize)
+
+	// Enforce block size.
+	encLength = blockedLength(encLength, effectiveBlockSize)
+
+	length := encLength - 4
+	paddingLength := length - (1 + len(packet))
+
+	// Overall buffer contains: header, payload, padding.
+	buffer := make([]byte, 5+len(packet)+paddingLength)
+
+	// Packet header.
+	buffer[0] = byte(length >> 24)
+	buffer[1] = byte(length >> 16)
+	buffer[2] = byte(length >> 8)
+	buffer[3] = byte(length)
+	buffer[4] = byte(paddingLength)
+
+	// Payload.
+	dataEnd := len(buffer) - paddingLength
+	copy(buffer[5:dataEnd], packet)
+
+	// Padding.
+	paddingEnd := dataEnd + paddingLength
+	_, err := io.ReadFull(rand, buffer[dataEnd:paddingEnd])
+	if err != nil {
+		return err
+	}
+
+	if s.mac != nil {
+		s.mac.Reset()
+		seqNumBytes := []byte{
+			byte(seqNum >> 24),
+			byte(seqNum >> 16),
+			byte(seqNum >> 8),
+			byte(seqNum),
+		}
+		s.mac.Write(seqNumBytes)
+		s.mac.Write(buffer)
+	}
+
+	s.cipher.CryptBlocks(buffer, buffer)
+
+	if _, err := w.Write(buffer); err != nil {
+		return err
+	}
+
+	if s.mac != nil {
+		if _, err := w.Write(s.mac.Sum(nil)); err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
