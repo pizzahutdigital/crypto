@@ -218,7 +218,22 @@ func newPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, 
 		return newGCMCipher(iv, key, macKey)
 	}
 
-	return cipherModes[algs.Cipher].createPacketCipher(dir, d, algs, macKey, key, iv)
+	return cipherModes[algs.Cipher].createPacketCipher(dir, d, algs, iv, key, macKey)
+}
+
+func (scm *streamCipherMode) createPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, iv, key, macKey []byte) (packetCipher, error) {
+	c := &streamPacketCipher{
+		mac: macModes[algs.MAC].new(macKey),
+	}
+	c.macResult = make([]byte, c.mac.Size())
+
+	var err error
+	c.cipher, err = scm.createStream(key, iv)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // generateKeyMaterial fills out with key material generated from tag, K, H
