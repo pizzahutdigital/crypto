@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/crypto/openpgp/elgamal"
-	"golang.org/x/crypto/openpgp/errors"
+	"github.com/ScriptRock/crypto/openpgp/elgamal"
+	"github.com/ScriptRock/crypto/openpgp/errors"
 )
 
 var (
@@ -201,6 +201,21 @@ func NewDSAPublicKey(creationTime time.Time, pub *dsa.PublicKey) *PublicKey {
 		PublicKey:    pub,
 		p:            fromBig(pub.P),
 		q:            fromBig(pub.Q),
+		g:            fromBig(pub.G),
+		y:            fromBig(pub.Y),
+	}
+
+	pk.setFingerPrintAndKeyId()
+	return pk
+}
+
+// NewElGamalPublicKey returns a PublicKey that wraps the given elgamal.PublicKey.
+func NewElGamalPublicKey(creationTime time.Time, pub *elgamal.PublicKey) *PublicKey {
+	pk := &PublicKey{
+		CreationTime: creationTime,
+		PubKeyAlgo:   PubKeyAlgoElGamal,
+		PublicKey:    pub,
+		p:            fromBig(pub.P),
 		g:            fromBig(pub.G),
 		y:            fromBig(pub.Y),
 	}

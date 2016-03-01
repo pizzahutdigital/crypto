@@ -151,8 +151,11 @@ var cipherModes = map[string]cipherMode{
 	// should invest a cleaner way to do this.
 	gcmCipherID: &streamCipherMode{16, 12, 0, nil},
 
-	// insecure cipher, see http://www.isg.rhul.ac.uk/~kp/SandPfinal.pdf
-	// uncomment below to enable it.
+	// CBC mode is insecure and so is not included in the default config.
+	// (See http://www.isg.rhul.ac.uk/~kp/SandPfinal.pdf). If absolutely
+	// needed, it's possible to specify a custom Config to enable it.
+	// You should expect that an active attacker can recover plaintext if
+	// you do.
 	"aes128-cbc": &blockCipherMode{16, aes.BlockSize, newAESCBC},
 	"aes192-cbc": &blockCipherMode{24, aes.BlockSize, newAESCBC},
 	"aes256-cbc": &blockCipherMode{32, aes.BlockSize, newAESCBC},

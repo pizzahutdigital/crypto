@@ -10,8 +10,8 @@ import (
 	"io"
 	"strconv"
 
-	"golang.org/x/crypto/openpgp/errors"
-	"golang.org/x/crypto/openpgp/s2k"
+	"github.com/ScriptRock/crypto/openpgp/errors"
+	"github.com/ScriptRock/crypto/openpgp/s2k"
 )
 
 // This is the largest session key that we'll support. Since no 512-bit cipher
@@ -85,7 +85,7 @@ func (ske *SymmetricKeyEncrypted) Decrypt(passphrase []byte) ([]byte, CipherFunc
 	c.XORKeyStream(plaintextKey, ske.encryptedKey)
 	cipherFunc := CipherFunction(plaintextKey[0])
 	if cipherFunc.blockSize() == 0 {
-		return nil, ske.CipherFunc, errors.UnsupportedError("unknown cipher: " + strconv.Itoa(int(ske.CipherFunc)))
+		return nil, ske.CipherFunc, errors.UnsupportedError("unknown cipher: " + strconv.Itoa(int(cipherFunc)))
 	}
 	plaintextKey = plaintextKey[1:]
 	if l := len(plaintextKey); l == 0 || l%cipherFunc.blockSize() != 0 {
