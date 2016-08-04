@@ -431,7 +431,8 @@ func (s *Session) wait(reqs <-chan *Request) error {
 	if wm.status == -1 {
 		// exit-status was never sent from server
 		if wm.signal == "" {
-			return errors.New("wait: remote command exited without exit status or exit signal. msg: '%v'", wm.msg)
+			err := fmt.Errorf("wait: remote command exited without exit status or exit signal. msg: '%v'", wm.msg)
+			return err
 		}
 		wm.status = 128
 		if _, ok := signals[Signal(wm.signal)]; ok {
