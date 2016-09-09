@@ -17,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ScriptRock/crypto/ed25519"
 	"github.com/ScriptRock/crypto/ssh/testdata"
 )
 
@@ -28,6 +29,8 @@ func rawKey(pub PublicKey) interface{} {
 		return (*dsa.PublicKey)(k)
 	case *ecdsaPublicKey:
 		return (*ecdsa.PublicKey)(k)
+	case ed25519PublicKey:
+		return (ed25519.PublicKey)(k)
 	case *Certificate:
 		return k
 	}
