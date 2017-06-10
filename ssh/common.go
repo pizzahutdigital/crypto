@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	_ "crypto/sha1"
@@ -48,7 +49,7 @@ var supportedKexAlgos = []string{
 	kexAlgoDH14SHA1, kexAlgoDH1SHA1,
 }
 
-// supportedKexAlgos specifies the supported host-key algorithms (i.e. methods
+// supportedHostKeyAlgos specifies the supported host-key algorithms (i.e. methods
 // of authenticating servers) in preference order.
 var supportedHostKeyAlgos = []string{
 	CertAlgoRSAv01, CertAlgoDSAv01, CertAlgoECDSA256v01,
@@ -63,7 +64,7 @@ var supportedHostKeyAlgos = []string{
 // supportedMACs specifies a default set of MAC algorithms in preference order.
 // This is based on RFC 4253, section 6.4
 var supportedMACs = []string{
-	"hmac-sha2-512", "hmac-sha2-256", "hmac-sha1", "hmac-sha1-96", "hmac-md5",
+	"hmac-sha2-512", "hmac-sha2-256-etm@openssh.com", "hmac-sha2-256", "hmac-sha1", "hmac-sha1-96", "hmac-md5",
 }
 
 var supportedCompressions = []string{compressionNone}
@@ -109,6 +110,21 @@ type directionAlgorithms struct {
 	Cipher      string
 	MAC         string
 	Compression string
+}
+
+// rekeyBytes returns a rekeying intervals in bytes.
+func (a *directionAlgorithms) rekeyBytes() int64 {
+	// According to RFC4344 block ciphers should rekey after
+	// 2^(BLOCKSIZE/4) blocks. For all AES flavors BLOCKSIZE is
+	// 128.
+	switch a.Cipher {
+	case "aes128-ctr", "aes192-ctr", "aes256-ctr", gcmCipherID, "aes128-cbc":
+		return 16 * (1 << 32)
+
+	}
+
+	// For others, stick with RFC4253 recommendation to rekey after 1 Gb of data.
+	return 1 << 30
 }
 
 type algorithms struct {
@@ -178,7 +194,7 @@ type Config struct {
 
 	// The maximum number of bytes sent or received after which a
 	// new key is negotiated. It must be at least 256. If
-	// unspecified, 1 gigabyte is used.
+	// unspecified, a size suitable for the chosen cipher is used.
 	RekeyThreshold uint64
 
 	// The allowed key exchanges algorithms. If unspecified then a
@@ -222,11 +238,12 @@ func (c *Config) SetDefaults() {
 	}
 
 	if c.RekeyThreshold == 0 {
-		// RFC 4253, section 9 suggests rekeying after 1G.
-		c.RekeyThreshold = 1 << 30
-	}
-	if c.RekeyThreshold < minRekeyThreshold {
+		// cipher specific default
+	} else if c.RekeyThreshold < minRekeyThreshold {
 		c.RekeyThreshold = minRekeyThreshold
+	} else if c.RekeyThreshold >= math.MaxInt64 {
+		// Avoid weirdness if somebody uses -1 as a threshold.
+		c.RekeyThreshold = math.MaxInt64
 	}
 }
 

@@ -26,61 +26,21 @@ type kexAlgBundle struct {
 
 func TestPacketCiphers(t *testing.T) {
 	for cipher := range cipherModes {
-		kexAlgs := []*kexAlgBundle{
-			&kexAlgBundle{
-				kr: &kexResult{Hash: crypto.SHA512},
-				algs: directionAlgorithms{
-					Cipher:      cipher,
-					MAC:         "hmac-sha2-512",
-					Compression: "none",
-				},
-			},
-			&kexAlgBundle{
-				kr: &kexResult{Hash: crypto.SHA256},
-				algs: directionAlgorithms{
-					Cipher:      cipher,
-					MAC:         "hmac-sha2-256",
-					Compression: "none",
-				},
-			},
-			&kexAlgBundle{
-				kr: &kexResult{Hash: crypto.SHA1},
-				algs: directionAlgorithms{
-					Cipher:      cipher,
-					MAC:         "hmac-sha1",
-					Compression: "none",
-				},
-			},
-			&kexAlgBundle{
-				kr: &kexResult{Hash: crypto.SHA1},
-				algs: directionAlgorithms{
-					Cipher:      cipher,
-					MAC:         "hmac-sha1-96",
-					Compression: "none",
-				},
-			},
-			&kexAlgBundle{
-				kr: &kexResult{Hash: crypto.MD5},
-				algs: directionAlgorithms{
-					Cipher:      cipher,
-					MAC:         "hmac-md5",
-					Compression: "none",
-				},
-			},
-		}
-		for _, kexAlg := range kexAlgs {
-			t.Logf("cipher %v kex %v", cipher, kexAlg.algs.MAC)
-
-			kr := kexAlg.kr
-			algs := kexAlg.algs
+		for mac := range macModes {
+			kr := &kexResult{Hash: crypto.SHA1}
+			algs := directionAlgorithms{
+				Cipher:      cipher,
+				MAC:         mac,
+				Compression: "none",
+			}
 			client, err := newPacketCipher(encrypt, clientKeys, algs, kr)
 			if err != nil {
-				t.Errorf("newPacketCipher(client, %q): %v", cipher, err)
+				t.Errorf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
 				continue
 			}
 			server, err := newPacketCipher(decrypt, clientKeys, algs, kr)
 			if err != nil {
-				t.Errorf("newPacketCipher(client, %q): %v", cipher, err)
+				t.Errorf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
 				continue
 			}
 
@@ -88,18 +48,18 @@ func TestPacketCiphers(t *testing.T) {
 			input := []byte(want)
 			buf := &bytes.Buffer{}
 			if err := client.writePacket(0, buf, rand.Reader, input); err != nil {
-				t.Errorf("writePacket(%q): %v", cipher, err)
+				t.Errorf("writePacket(%q, %q): %v", cipher, mac, err)
 				continue
 			}
 
 			packet, err := server.readPacket(0, buf)
 			if err != nil {
-				t.Errorf("readPacket(%q): %v", cipher, err)
+				t.Errorf("readPacket(%q, %q): %v", cipher, mac, err)
 				continue
 			}
 
 			if string(packet) != want {
-				t.Errorf("roundtrip(%q): got %q, want %q", cipher, packet, want)
+				t.Errorf("roundtrip(%q, %q): got %q, want %q", cipher, mac, packet, want)
 			}
 		}
 	}
