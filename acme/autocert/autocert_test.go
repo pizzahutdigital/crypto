@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/acme"
+	"github.com/ScriptRock/crypto/acme"
 )
 
 var discoTmpl = template.Must(template.New("disco").Parse(`{
