@@ -24,16 +24,24 @@ const (
 	serviceSSH      = "ssh-connection"
 )
 
-// supportedCiphers specifies the supported ciphers in preference order.
-var defaultSupportedCiphers = []string{
+// supportedCiphers lists ciphers we support but might not recommend.
+var supportedCiphers = []string{
 	"aes128-ctr", "aes192-ctr", "aes256-ctr",
 	"aes128-gcm@openssh.com",
-	"arcfour256", "arcfour128",
+	chacha20Poly1305ID,
+	"arcfour256", "arcfour128", "arcfour",
+	aes128cbcID,
+	aes192cbcID,
+	aes256cbcID,
+	tripledescbcID,
 }
-var discouragedSupportedCiphers = []string{
-	"aes128-cbc", "aes192-cbc", "aes256-cbc", "3des-cbc",
+
+// preferredCiphers specifies the default preference for ciphers.
+var preferredCiphers = []string{
+	"aes128-gcm@openssh.com",
+	chacha20Poly1305ID,
+	"aes128-ctr", "aes192-ctr", "aes256-ctr",
 }
-var supportedCiphers = append(defaultSupportedCiphers, discouragedSupportedCiphers...)
 
 func AllSupportedCiphers() []string {
 	return append(supportedCiphers)
@@ -62,9 +70,10 @@ var supportedHostKeyAlgos = []string{
 }
 
 // supportedMACs specifies a default set of MAC algorithms in preference order.
-// This is based on RFC 4253, section 6.4
+// This is based on RFC 4253, section 6.4, but with hmac-md5 variants removed
+// because they have reached the end of their useful life.
 var supportedMACs = []string{
-	"hmac-sha2-512", "hmac-sha2-256-etm@openssh.com", "hmac-sha2-256", "hmac-sha1", "hmac-sha1-96", "hmac-md5",
+	"hmac-sha2-256-etm@openssh.com", "hmac-sha2-512", "hmac-sha2-256", "hmac-sha1", "hmac-sha1-96", "hmac-md5",
 }
 
 var supportedCompressions = []string{compressionNone}
@@ -118,7 +127,7 @@ func (a *directionAlgorithms) rekeyBytes() int64 {
 	// 2^(BLOCKSIZE/4) blocks. For all AES flavors BLOCKSIZE is
 	// 128.
 	switch a.Cipher {
-	case "aes128-ctr", "aes192-ctr", "aes256-ctr", gcmCipherID, "aes128-cbc":
+	case "aes128-ctr", "aes192-ctr", "aes256-ctr", gcmCipherID, aes128cbcID, aes192cbcID, aes256cbcID:
 		return 16 * (1 << 32)
 
 	}
@@ -218,7 +227,7 @@ func (c *Config) SetDefaults() {
 		c.Rand = rand.Reader
 	}
 	if c.Ciphers == nil {
-		c.Ciphers = defaultSupportedCiphers
+		c.Ciphers = preferredCiphers
 	}
 	var ciphers []string
 	for _, c := range c.Ciphers {
@@ -249,7 +258,7 @@ func (c *Config) SetDefaults() {
 
 // buildDataSignedForAuth returns the data that is signed in order to prove
 // possession of a private key. See RFC 4252, section 7.
-func buildDataSignedForAuth(sessionId []byte, req userAuthRequestMsg, algo, pubKey []byte) []byte {
+func buildDataSignedForAuth(sessionID []byte, req userAuthRequestMsg, algo, pubKey []byte) []byte {
 	data := struct {
 		Session []byte
 		Type    byte
@@ -260,7 +269,7 @@ func buildDataSignedForAuth(sessionId []byte, req userAuthRequestMsg, algo, pubK
 		Algo    []byte
 		PubKey  []byte
 	}{
-		sessionId,
+		sessionID,
 		msgUserAuthRequest,
 		req.User,
 		req.Service,

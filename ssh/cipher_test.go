@@ -14,65 +14,76 @@ import (
 func TestDefaultCiphersExist(t *testing.T) {
 	for _, cipherAlgo := range supportedCiphers {
 		if _, ok := cipherModes[cipherAlgo]; !ok {
-			t.Errorf("default cipher %q is unknown", cipherAlgo)
+			t.Errorf("supported cipher %q is unknown", cipherAlgo)
+		}
+	}
+	for _, cipherAlgo := range preferredCiphers {
+		if _, ok := cipherModes[cipherAlgo]; !ok {
+			t.Errorf("preferred cipher %q is unknown", cipherAlgo)
 		}
 	}
 }
 
-type kexAlgBundle struct {
-	kr   *kexResult
-	algs directionAlgorithms
-}
-
 func TestPacketCiphers(t *testing.T) {
+	defaultMac := "hmac-sha2-256"
+	defaultCipher := "aes128-ctr"
+	for cipher := range cipherModes {
+		t.Run("cipher="+cipher,
+			func(t *testing.T) { testPacketCipher(t, cipher, defaultMac) })
+	}
+	for mac := range macModes {
+		t.Run("mac="+mac,
+			func(t *testing.T) { testPacketCipher(t, defaultCipher, mac) })
+	}
 	for cipher := range cipherModes {
 		for mac := range macModes {
-			kr := &kexResult{Hash: crypto.SHA1}
-			algs := directionAlgorithms{
-				Cipher:      cipher,
-				MAC:         mac,
-				Compression: "none",
-			}
-			client, err := newPacketCipher(encrypt, clientKeys, algs, kr)
-			if err != nil {
-				t.Errorf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
-				continue
-			}
-			server, err := newPacketCipher(decrypt, clientKeys, algs, kr)
-			if err != nil {
-				t.Errorf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
-				continue
-			}
-
-			want := "bla bla"
-			input := []byte(want)
-			buf := &bytes.Buffer{}
-			if err := client.writePacket(0, buf, rand.Reader, input); err != nil {
-				t.Errorf("writePacket(%q, %q): %v", cipher, mac, err)
-				continue
-			}
-
-			packet, err := server.readPacket(0, buf)
-			if err != nil {
-				t.Errorf("readPacket(%q, %q): %v", cipher, mac, err)
-				continue
-			}
-
-			if string(packet) != want {
-				t.Errorf("roundtrip(%q, %q): got %q, want %q", cipher, mac, packet, want)
-			}
+			t.Run("cipher="+cipher+",mac="+mac,
+				func(t *testing.T) { testPacketCipher(t, cipher, mac) })
 		}
+	}
+}
+
+func testPacketCipher(t *testing.T, cipher, mac string) {
+	kr := &kexResult{Hash: crypto.SHA1}
+	algs := directionAlgorithms{
+		Cipher:      cipher,
+		MAC:         mac,
+		Compression: "none",
+	}
+	client, err := newPacketCipher(clientKeys, algs, kr)
+	if err != nil {
+		t.Fatalf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
+	}
+	server, err := newPacketCipher(clientKeys, algs, kr)
+	if err != nil {
+		t.Fatalf("newPacketCipher(client, %q, %q): %v", cipher, mac, err)
+	}
+
+	want := "bla bla"
+	input := []byte(want)
+	buf := &bytes.Buffer{}
+	if err := client.writePacket(0, buf, rand.Reader, input); err != nil {
+		t.Fatalf("writePacket(%q, %q): %v", cipher, mac, err)
+	}
+
+	packet, err := server.readPacket(0, buf)
+	if err != nil {
+		t.Fatalf("readPacket(%q, %q): %v", cipher, mac, err)
+	}
+
+	if string(packet) != want {
+		t.Errorf("roundtrip(%q, %q): got %q, want %q", cipher, mac, packet, want)
 	}
 }
 
 func TestCBCOracleCounterMeasure(t *testing.T) {
 	kr := &kexResult{Hash: crypto.SHA1}
 	algs := directionAlgorithms{
-		Cipher:      "aes128-cbc",
+		Cipher:      aes128cbcID,
 		MAC:         "hmac-sha1",
 		Compression: "none",
 	}
-	client, err := newPacketCipher(encrypt, clientKeys, algs, kr)
+	client, err := newPacketCipher(clientKeys, algs, kr)
 	if err != nil {
 		t.Fatalf("newPacketCipher(client): %v", err)
 	}
@@ -91,7 +102,7 @@ func TestCBCOracleCounterMeasure(t *testing.T) {
 	// 'packet too large' or 'MAC failure' cases.
 	lastRead := -1
 	for i := 0; i < packetSize; i++ {
-		server, err := newPacketCipher(decrypt, clientKeys, algs, kr)
+		server, err := newPacketCipher(clientKeys, algs, kr)
 		if err != nil {
 			t.Fatalf("newPacketCipher(client): %v", err)
 		}

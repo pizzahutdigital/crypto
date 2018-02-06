@@ -6,6 +6,7 @@ package ssh
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -16,7 +17,11 @@ import (
 const debugTransport = false
 
 const (
-	gcmCipherID = "aes128-gcm@openssh.com"
+	gcmCipherID    = "aes128-gcm@openssh.com"
+	aes128cbcID    = "aes128-cbc"
+	aes192cbcID    = "aes192-cbc"
+	aes256cbcID    = "aes256-cbc"
+	tripledescbcID = "3des-cbc"
 )
 
 // packetConn represents a transport that implements packet based
@@ -74,17 +79,17 @@ type connectionState struct {
 // both directions are triggered by reading and writing a msgNewKey packet
 // respectively.
 func (t *transport) prepareKeyChange(algs *algorithms, kexResult *kexResult) error {
-	if ciph, err := newPacketCipher(decrypt, t.reader.dir, algs.r, kexResult); err != nil {
+	ciph, err := newPacketCipher(t.reader.dir, algs.r, kexResult)
+	if err != nil {
 		return err
-	} else {
-		t.reader.pendingKeyChange <- ciph
 	}
+	t.reader.pendingKeyChange <- ciph
 
-	if ciph, err := newPacketCipher(encrypt, t.writer.dir, algs.w, kexResult); err != nil {
+	ciph, err = newPacketCipher(t.writer.dir, algs.w, kexResult)
+	if err != nil {
 		return err
-	} else {
-		t.writer.pendingKeyChange <- ciph
 	}
+	t.writer.pendingKeyChange <- ciph
 
 	return nil
 }
@@ -137,7 +142,7 @@ func (s *connectionState) readPacket(r *bufio.Reader) ([]byte, error) {
 			case cipher := <-s.pendingKeyChange:
 				s.packetCipher = cipher
 			default:
-				return nil, errors.New("ssh: got bogus newkeys message.")
+				return nil, errors.New("ssh: got bogus newkeys message")
 			}
 
 		case msgDisconnect:
@@ -230,48 +235,22 @@ var (
 	clientKeys = direction{[]byte{'A'}, []byte{'C'}, []byte{'E'}}
 )
 
-// generateKeys generates key material for IV, MAC and encryption.
-func generateKeys(d direction, algs directionAlgorithms, kex *kexResult) (iv, key, macKey []byte) {
+// setupKeys sets the cipher and MAC keys from kex.K, kex.H and sessionId, as
+// described in RFC 4253, section 6.4. direction should either be serverKeys
+// (to setup server->client keys) or clientKeys (for client->server keys).
+func newPacketCipher(d direction, algs directionAlgorithms, kex *kexResult) (packetCipher, error) {
 	cipherMode := cipherModes[algs.Cipher]
 	macMode := macModes[algs.MAC]
 
-	iv = make([]byte, cipherMode.IvSize())
-	key = make([]byte, cipherMode.KeySize())
-	macKey = make([]byte, macMode.keySize)
+	iv := make([]byte, cipherMode.ivSize)
+	key := make([]byte, cipherMode.keySize)
+	macKey := make([]byte, macMode.keySize)
 
 	generateKeyMaterial(iv, d.ivTag, kex)
 	generateKeyMaterial(key, d.keyTag, kex)
 	generateKeyMaterial(macKey, d.macKeyTag, kex)
-	return
-}
 
-// setupKeys sets the cipher and MAC keys from kex.K, kex.H and sessionId, as
-// described in RFC 4253, section 6.4. direction should either be serverKeys
-// (to setup server->client keys) or clientKeys (for client->server keys).
-func newPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, kex *kexResult) (packetCipher, error) {
-	iv, key, macKey := generateKeys(d, algs, kex)
-
-	if algs.Cipher == gcmCipherID {
-		return newGCMCipher(iv, key, macKey)
-	}
-
-	return cipherModes[algs.Cipher].createPacketCipher(dir, d, algs, iv, key, macKey)
-}
-
-func (scm *streamCipherMode) createPacketCipher(dir cryptDirection, d direction, algs directionAlgorithms, iv, key, macKey []byte) (packetCipher, error) {
-	c := &streamPacketCipher{
-		mac: macModes[algs.MAC].new(macKey),
-		etm: macModes[algs.MAC].etm,
-	}
-	c.macResult = make([]byte, c.mac.Size())
-
-	var err error
-	c.cipher, err = scm.createStream(key, iv)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return cipherModes[algs.Cipher].create(key, iv, macKey, algs)
 }
 
 // generateKeyMaterial fills out with key material generated from tag, K, H
@@ -336,7 +315,7 @@ func readVersion(r io.Reader) ([]byte, error) {
 	var ok bool
 	var buf [1]byte
 
-	for len(versionString) < maxVersionStringBytes {
+	for length := 0; length < maxVersionStringBytes; length++ {
 		_, err := io.ReadFull(r, buf[:])
 		if err != nil {
 			return nil, err
@@ -344,6 +323,13 @@ func readVersion(r io.Reader) ([]byte, error) {
 		// The RFC says that the version should be terminated with \r\n
 		// but several SSH servers actually only send a \n.
 		if buf[0] == '\n' {
+			if !bytes.HasPrefix(versionString, []byte("SSH-")) {
+				// RFC 4253 says we need to ignore all version string lines
+				// except the one containing the SSH version (provided that
+				// all the lines do not exceed 255 bytes in total).
+				versionString = versionString[:0]
+				continue
+			}
 			ok = true
 			break
 		}

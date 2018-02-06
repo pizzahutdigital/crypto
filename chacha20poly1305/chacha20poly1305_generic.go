@@ -7,7 +7,7 @@ package chacha20poly1305
 import (
 	"encoding/binary"
 
-	"github.com/ScriptRock/crypto/chacha20poly1305/internal/chacha20"
+	"github.com/ScriptRock/crypto/internal/chacha20"
 	"github.com/ScriptRock/crypto/poly1305"
 )
 
