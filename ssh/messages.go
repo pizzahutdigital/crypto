@@ -69,10 +69,31 @@ type kexInitMsg struct {
 // See RFC 4253, section 8.
 
 // Diffie-Helman
+const msgKexDHGexRequest = 34
+
+type kexDHGexRequestMsg struct {
+	Min uint32 `sshtype:"34"`
+	N   uint32
+	Max uint32
+}
+
+const msgKexDHGexGroup = 31
+
+type kexDHGexGroupMsg struct {
+	P *big.Int `sshtype:"31"`
+	G *big.Int
+}
+
 const msgKexDHInit = 30
 
 type kexDHInitMsg struct {
 	X *big.Int `sshtype:"30"`
+}
+
+const msgKexDHGexInit = 32
+
+type kexDHGexInitMsg struct {
+	X *big.Int `sshtype:"32"`
 }
 
 const msgKexECDHInit = 30
@@ -93,6 +114,14 @@ const msgKexDHReply = 31
 
 type kexDHReplyMsg struct {
 	HostKey   []byte `sshtype:"31"`
+	Y         *big.Int
+	Signature []byte
+}
+
+const msgKexDHGexReply = 33
+
+type kexDHGexReplyMsg struct {
+	HostKey   []byte `sshtype:"33"`
 	Y         *big.Int
 	Signature []byte
 }
