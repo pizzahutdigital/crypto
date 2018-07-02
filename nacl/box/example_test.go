@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ScriptRock/crypto/nacl/box"
+	"github.com/pizzahutdigital/crypto/nacl/box"
 )
 
 func Example() {

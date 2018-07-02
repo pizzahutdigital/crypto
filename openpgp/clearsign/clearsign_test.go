@@ -6,7 +6,7 @@ package clearsign
 
 import (
 	"bytes"
-	"github.com/ScriptRock/crypto/openpgp"
+	"github.com/pizzahutdigital/crypto/openpgp"
 	"testing"
 )
 

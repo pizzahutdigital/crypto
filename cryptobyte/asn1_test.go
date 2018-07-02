@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ScriptRock/crypto/cryptobyte/asn1"
+	"github.com/pizzahutdigital/crypto/cryptobyte/asn1"
 )
 
 type readASN1Test struct {

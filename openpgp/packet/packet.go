@@ -4,15 +4,15 @@
 
 // Package packet implements parsing and serialization of OpenPGP packets, as
 // specified in RFC 4880.
-package packet // import "github.com/ScriptRock/crypto/openpgp/packet"
+package packet // import "github.com/pizzahutdigital/crypto/openpgp/packet"
 
 import (
 	"bufio"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
-	"github.com/ScriptRock/crypto/cast5"
-	"github.com/ScriptRock/crypto/openpgp/errors"
+	"github.com/pizzahutdigital/crypto/cast5"
+	"github.com/pizzahutdigital/crypto/openpgp/errors"
 	"io"
 	"math/big"
 )

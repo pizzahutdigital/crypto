@@ -9,7 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"github.com/ScriptRock/crypto/hkdf"
+	"github.com/pizzahutdigital/crypto/hkdf"
 	"io"
 )
 

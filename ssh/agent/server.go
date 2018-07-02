@@ -16,8 +16,8 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/ScriptRock/crypto/ed25519"
-	"github.com/ScriptRock/crypto/ssh"
+	"github.com/pizzahutdigital/crypto/ed25519"
+	"github.com/pizzahutdigital/crypto/ssh"
 )
 
 // Server wraps an Agent and uses it to implement the agent side of

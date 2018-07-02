@@ -17,8 +17,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ScriptRock/crypto/openpgp/errors"
-	"github.com/ScriptRock/crypto/openpgp/s2k"
+	"github.com/pizzahutdigital/crypto/openpgp/errors"
+	"github.com/pizzahutdigital/crypto/openpgp/s2k"
 )
 
 const (

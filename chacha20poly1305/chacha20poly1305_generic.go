@@ -7,8 +7,8 @@ package chacha20poly1305
 import (
 	"encoding/binary"
 
-	"github.com/ScriptRock/crypto/internal/chacha20"
-	"github.com/ScriptRock/crypto/poly1305"
+	"github.com/pizzahutdigital/crypto/internal/chacha20"
+	"github.com/pizzahutdigital/crypto/poly1305"
 )
 
 func roundTo16(n int) int {

@@ -9,7 +9,7 @@
 //
 // References:
 //  [PROTOCOL.agent]:    http://cvsweb.openbsd.org/cgi-bin/cvsweb/src/usr.bin/ssh/PROTOCOL.agent?rev=HEAD
-package agent // import "github.com/ScriptRock/crypto/ssh/agent"
+package agent // import "github.com/pizzahutdigital/crypto/ssh/agent"
 
 import (
 	"bytes"
@@ -25,8 +25,8 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ScriptRock/crypto/ed25519"
-	"github.com/ScriptRock/crypto/ssh"
+	"github.com/pizzahutdigital/crypto/ed25519"
+	"github.com/pizzahutdigital/crypto/ssh"
 )
 
 // Agent represents the capabilities of an ssh-agent.

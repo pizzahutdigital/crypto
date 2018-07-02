@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ScriptRock/crypto/openpgp/armor"
-	"github.com/ScriptRock/crypto/openpgp/errors"
-	"github.com/ScriptRock/crypto/openpgp/packet"
-	"github.com/ScriptRock/crypto/openpgp/s2k"
+	"github.com/pizzahutdigital/crypto/openpgp/armor"
+	"github.com/pizzahutdigital/crypto/openpgp/errors"
+	"github.com/pizzahutdigital/crypto/openpgp/packet"
+	"github.com/pizzahutdigital/crypto/openpgp/s2k"
 )
 
 // DetachSign signs message with the private key from signer (which must

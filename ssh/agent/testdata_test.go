@@ -12,8 +12,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/ScriptRock/crypto/ssh"
-	"github.com/ScriptRock/crypto/ssh/testdata"
+	"github.com/pizzahutdigital/crypto/ssh"
+	"github.com/pizzahutdigital/crypto/ssh/testdata"
 )
 
 var (

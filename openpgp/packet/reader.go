@@ -5,7 +5,7 @@
 package packet
 
 import (
-	"github.com/ScriptRock/crypto/openpgp/errors"
+	"github.com/pizzahutdigital/crypto/openpgp/errors"
 	"io"
 )
 

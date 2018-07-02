@@ -9,9 +9,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/ScriptRock/crypto/openpgp/armor"
-	"github.com/ScriptRock/crypto/openpgp/errors"
-	"github.com/ScriptRock/crypto/openpgp/packet"
+	"github.com/pizzahutdigital/crypto/openpgp/armor"
+	"github.com/pizzahutdigital/crypto/openpgp/errors"
+	"github.com/pizzahutdigital/crypto/openpgp/packet"
 )
 
 // PublicKeyType is the armor type for a PGP public key.

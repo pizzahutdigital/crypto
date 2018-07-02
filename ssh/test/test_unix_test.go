@@ -23,8 +23,8 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/ScriptRock/crypto/ssh"
-	"github.com/ScriptRock/crypto/ssh/testdata"
+	"github.com/pizzahutdigital/crypto/ssh"
+	"github.com/pizzahutdigital/crypto/ssh/testdata"
 )
 
 const (

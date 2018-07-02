@@ -15,7 +15,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	_ "github.com/ScriptRock/crypto/ripemd160"
+	_ "github.com/pizzahutdigital/crypto/ripemd160"
 )
 
 var saltedTests = []struct {

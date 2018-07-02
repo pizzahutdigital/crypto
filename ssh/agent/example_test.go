@@ -9,8 +9,8 @@ import (
 	"net"
 	"os"
 
-        "github.com/ScriptRock/crypto/ssh"
-        "github.com/ScriptRock/crypto/ssh/agent"
+        "github.com/pizzahutdigital/crypto/ssh"
+        "github.com/pizzahutdigital/crypto/ssh/agent"
 )
 
 func ExampleClientAgent() {

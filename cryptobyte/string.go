@@ -15,7 +15,7 @@
 //
 // See the documentation and examples for the Builder and String types to get
 // started.
-package cryptobyte // import "github.com/ScriptRock/crypto/cryptobyte"
+package cryptobyte // import "github.com/pizzahutdigital/crypto/cryptobyte"
 
 // String represents a string of bytes. It provides methods for parsing
 // fixed-length and length-prefixed values from it.

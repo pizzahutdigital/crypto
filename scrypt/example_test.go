@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ScriptRock/crypto/scrypt"
+	"github.com/pizzahutdigital/crypto/scrypt"
 )
 
 func Example() {
